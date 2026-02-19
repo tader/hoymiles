@@ -3,7 +3,7 @@ Main module of addon
 """
 
 __author__ = "dmslabs&Cosik"
-__version__ = "1.4.8"
+__version__ = "1.4.9"
 __app_name__ = "Hoymiles Gateway"
 
 import json
@@ -19,8 +19,6 @@ from string import Template
 from const import (
     DEVICE_DICT,
     EXPIRE_TIME,
-    GETDATA_INTERVAL,
-    HASS_INTERVAL,
     MQTT_HASS,
     MQTT_PUB,
     NODE_ID,
@@ -270,7 +268,7 @@ def publicate_data(hoymiles_h: Hoymiles, mqtt_h: MqttApi):
             logger.info(f"Solar data publication...{datetime.now()}")
             mqtt_h.send_clients_status()
         except Exception as e:
-            logger.error(f"Error publishing solar data: {e}")   
+            logger.error(f"Error publishing solar data: {e}")
 
     for device in hoymiles_h.dtu_list:
         if len(device.data):
@@ -487,6 +485,15 @@ def main() -> int:
                 mqtt_h=mqtt_h,
             )
         )
+        if config["Auto_update_token"]:
+            for id, plant in plant_list.items():
+                job_list.append(
+                    Job(
+                        interval=timedelta(seconds=72000),  # 20h
+                        execute=plant.update_token,
+                        name="update_token",
+                    )
+                )
 
     for job in job_list:
         job.start()

@@ -382,15 +382,27 @@ class Hoymiles(object):
         Returns:
             bool: Status of getting token operation
         """
-        status, token = LegacyToken().get_token(
+        status, token = ArgonToken().get_token(
             self._config["HOYMILES_USER"], self._config["HOYMILES_PASSWORD"]
         )
         if status:
             return True, token
-        
-        return ArgonToken().get_token(
+
+        return LegacyToken().get_token(
             self._config["HOYMILES_USER"], self._config["HOYMILES_PASSWORD"]
         )
+
+    def update_token(self) -> bool:
+        """Update token in connection object
+
+        Returns:
+            bool: Status of getting token operation
+        """
+        status, token = self.get_token()
+        if status:
+            self.connection.token = token
+            return True
+        return False
 
     def get_solar_data(self) -> dict:
         """Get solar data
