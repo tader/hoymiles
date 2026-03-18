@@ -188,12 +188,7 @@ class RequestHandler(object):
                         self.logger.debug(
                             f"{api} Error: {retv['status']} {retv['message']}"
                         )
-                        if retv["status"] == "100":
-                            # request new token
-                            if self.get_token():
-                                # chama pega solar novamente
-                                retv["status"], retv["data"] = self.request_solar_data()
-                        elif retv["status"] == "3":
+                        if retv["status"] == "3":
                             self.logger.error("Wrong plant id!!")
                             sys.exit(0)
                 else:
@@ -374,7 +369,18 @@ class Hoymiles(object):
         Returns:
             dict: _description_
         """
-        return self._request_handler.send_payload(api, header, payload)
+        retv = self._request_handler.send_payload(api, header, payload)
+        if isinstance(retv, dict) and retv.get("status") == "100":
+            self.logger.info("Token expired, refreshing Hoymiles session")
+            if self.update_token():
+                retry_header = dict(header)
+                retry_header["Authorization"] = self.connection.token
+                retv = self._request_handler.send_payload(
+                    api, retry_header, payload
+                )
+            else:
+                self.logger.error("Failed to refresh Hoymiles token")
+        return retv
 
     def get_token(self) -> bool:
         """Getter for token
@@ -606,10 +612,13 @@ class Hoymiles(object):
 
     def get_alarms(self):
         """_summary_"""
-        header = self._get_auth_header()
         for micro in self.micro_list:
+            header = self._get_auth_header()
             payload = json.dumps({"id": micro.id})
             retv = self.send_payload(DATA_FIND_DETAILS, header, payload)
+            if retv.get("status") != "0" or not isinstance(retv.get("data"), dict):
+                self.logger.warning(f"Skipping alarm update for {micro.id}: {retv}")
+                continue
             try:
                 if retv["data"]["warn_list"]:
                     micro.data["alarm_code"] = int(
